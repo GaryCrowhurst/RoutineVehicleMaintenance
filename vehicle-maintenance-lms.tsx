@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle, Circle, Award, BookOpen, ChevronRight, ChevronLeft, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { CheckCircle, Circle, Award, BookOpen, ChevronRight, ChevronLeft, RotateCcw, Download, Camera } from 'lucide-react';
 
 const VehicleMaintenanceLMS = () => {
   const [currentModule, setCurrentModule] = useState(0);
@@ -7,6 +7,10 @@ const VehicleMaintenanceLMS = () => {
   const [progress, setProgress] = useState({});
   const [quizAnswers, setQuizAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
+  const [learnerName, setLearnerName] = useState('');
+  const [showNamePrompt, setShowNamePrompt] = useState(true);
+  const [showCertificate, setShowCertificate] = useState(false);
+  const certificateRef = useRef(null);
 
   const modules = [
     {
@@ -569,6 +573,102 @@ const VehicleMaintenanceLMS = () => {
     return Math.round((completed / modules.length) * 100);
   };
 
+  const isAllComplete = () => {
+    return Object.values(progress).filter(v => v).length === modules.length;
+  };
+
+  const downloadCertificate = () => {
+    const certificate = certificateRef.current;
+    if (!certificate) return;
+
+    // Create a canvas from the certificate
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas size
+    canvas.width = 1200;
+    canvas.height = 850;
+    
+    // Draw white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw border
+    ctx.strokeStyle = '#1e40af';
+    ctx.lineWidth = 20;
+    ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
+    
+    // Inner border
+    ctx.strokeStyle = '#93c5fd';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(60, 60, canvas.width - 120, canvas.height - 120);
+    
+    // Title
+    ctx.fillStyle = '#1e40af';
+    ctx.font = 'bold 60px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('CERTIFICATE OF COMPLETION', canvas.width / 2, 160);
+    
+    // Subtitle
+    ctx.font = '24px Arial';
+    ctx.fillStyle = '#4b5563';
+    ctx.fillText('This certifies that', canvas.width / 2, 240);
+    
+    // Name
+    ctx.font = 'bold 48px Arial';
+    ctx.fillStyle = '#000000';
+    ctx.fillText(learnerName || 'Learner Name', canvas.width / 2, 320);
+    
+    // Achievement text
+    ctx.font = '24px Arial';
+    ctx.fillStyle = '#4b5563';
+    ctx.fillText('has successfully completed', canvas.width / 2, 380);
+    
+    // Course name
+    ctx.font = 'bold 32px Arial';
+    ctx.fillStyle = '#1e40af';
+    ctx.fillText('Vehicle Maintenance Training', canvas.width / 2, 450);
+    ctx.fillText('Level 1 Certificate - Unit 727/777', canvas.width / 2, 490);
+    
+    // Details
+    ctx.font = '20px Arial';
+    ctx.fillStyle = '#4b5563';
+    ctx.fillText('Completing all 11 modules with 70% or higher', canvas.width / 2, 550);
+    
+    // Date
+    const completionDate = new Date().toLocaleDateString('en-GB', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+    ctx.font = 'italic 22px Arial';
+    ctx.fillText(`Date of Completion: ${completionDate}`, canvas.width / 2, 620);
+    
+    // Signature line
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(400, 720);
+    ctx.lineTo(800, 720);
+    ctx.stroke();
+    
+    ctx.font = '18px Arial';
+    ctx.fillStyle = '#4b5563';
+    ctx.fillText('Course Administrator', canvas.width / 2, 750);
+    
+    // Award icon (simple star)
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = '80px Arial';
+    ctx.fillText('⭐', 120, 450);
+    ctx.fillText('⭐', canvas.width - 120, 450);
+    
+    // Download
+    const link = document.createElement('a');
+    link.download = `Vehicle_Maintenance_Certificate_${learnerName.replace(/\s+/g, '_')}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+  };
+
   const handleQuizSubmit = (moduleId) => {
     const currentQuiz = modules[currentModule].quiz;
     const answers = quizAnswers[moduleId] || {};
@@ -576,7 +676,14 @@ const VehicleMaintenanceLMS = () => {
     const percentage = Math.round((correct / currentQuiz.length) * 100);
     
     if (percentage >= 70) {
-      setProgress({ ...progress, [moduleId]: true });
+      const newProgress = { ...progress, [moduleId]: true };
+      setProgress(newProgress);
+      
+      // Check if all modules are now complete
+      const allComplete = Object.values(newProgress).filter(v => v).length === modules.length;
+      if (allComplete) {
+        setTimeout(() => setShowCertificate(true), 2000);
+      }
     }
     
     setShowResults({ total: currentQuiz.length, correct, percentage });
@@ -719,8 +826,164 @@ const VehicleMaintenanceLMS = () => {
     );
   };
 
+  const CertificateModal = () => {
+    const completionDate = new Date().toLocaleDateString('en-GB', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6 border-b">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-800">🎉 Course Complete!</h2>
+              <button
+                onClick={() => setShowCertificate(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          <div className="p-8">
+            <div 
+              ref={certificateRef}
+              className="border-8 border-blue-700 rounded-lg p-12 bg-gradient-to-br from-blue-50 to-white relative"
+              style={{ minHeight: '600px' }}
+            >
+              {/* Decorative corners */}
+              <div className="absolute top-4 left-4 w-16 h-16 border-t-4 border-l-4 border-blue-300 rounded-tl-lg"></div>
+              <div className="absolute top-4 right-4 w-16 h-16 border-t-4 border-r-4 border-blue-300 rounded-tr-lg"></div>
+              <div className="absolute bottom-4 left-4 w-16 h-16 border-b-4 border-l-4 border-blue-300 rounded-bl-lg"></div>
+              <div className="absolute bottom-4 right-4 w-16 h-16 border-b-4 border-r-4 border-blue-300 rounded-br-lg"></div>
+
+              <div className="text-center space-y-6">
+                {/* Header */}
+                <div className="text-6xl mb-4">🏆</div>
+                <h1 className="text-5xl font-bold text-blue-800 mb-2">
+                  CERTIFICATE OF COMPLETION
+                </h1>
+                <div className="w-32 h-1 bg-gradient-to-r from-blue-400 to-blue-600 mx-auto"></div>
+
+                {/* Body */}
+                <div className="space-y-4 my-8">
+                  <p className="text-xl text-gray-600">This certifies that</p>
+                  <p className="text-4xl font-bold text-gray-900 py-2">
+                    {learnerName}
+                  </p>
+                  <p className="text-xl text-gray-600">has successfully completed</p>
+                  
+                  <div className="bg-blue-100 border-2 border-blue-300 rounded-lg p-4 inline-block">
+                    <p className="text-2xl font-bold text-blue-800">
+                      Vehicle Maintenance Training
+                    </p>
+                    <p className="text-lg text-blue-700">
+                      Level 1 Certificate - Unit 727/777
+                    </p>
+                  </div>
+
+                  <p className="text-lg text-gray-600 pt-4">
+                    Completing all 11 modules with 70% or higher
+                  </p>
+                </div>
+
+                {/* Footer */}
+                <div className="mt-12 pt-8 border-t-2 border-gray-300">
+                  <div className="flex justify-between items-end max-w-2xl mx-auto">
+                    <div className="text-left">
+                      <div className="border-t-2 border-gray-800 w-48 mb-2"></div>
+                      <p className="text-sm text-gray-600">Course Administrator</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-semibold text-gray-800">{completionDate}</p>
+                      <p className="text-sm text-gray-600">Date of Completion</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Badge */}
+                <div className="absolute top-8 right-8 bg-yellow-400 rounded-full w-20 h-20 flex items-center justify-center border-4 border-yellow-500 shadow-lg">
+                  <Award size={40} className="text-yellow-800" />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex gap-4 justify-center">
+              <button
+                onClick={downloadCertificate}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-semibold shadow-lg"
+              >
+                <Download size={20} />
+                Download Certificate
+              </button>
+              <button
+                onClick={() => {
+                  alert('To screenshot:\n\n1. Click this button to close this message\n2. Use your device\'s screenshot function:\n   • Windows: Windows Key + Print Screen\n   • Mac: Cmd + Shift + 4\n   • Mobile: Power + Volume Down\n3. Crop the certificate area');
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all font-semibold"
+              >
+                <Camera size={20} />
+                Screenshot Tips
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const NamePromptModal = () => {
+    const [tempName, setTempName] = useState('');
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-8">
+          <div className="text-center mb-6">
+            <div className="text-6xl mb-4">👋</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome!</h2>
+            <p className="text-gray-600">Please enter your name to begin your training</p>
+          </div>
+
+          <input
+            type="text"
+            value={tempName}
+            onChange={(e) => setTempName(e.target.value)}
+            placeholder="Enter your full name"
+            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none mb-4"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && tempName.trim()) {
+                setLearnerName(tempName.trim());
+                setShowNamePrompt(false);
+              }
+            }}
+          />
+
+          <button
+            onClick={() => {
+              if (tempName.trim()) {
+                setLearnerName(tempName.trim());
+                setShowNamePrompt(false);
+              }
+            }}
+            disabled={!tempName.trim()}
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            Start Learning
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {showNamePrompt && <NamePromptModal />}
+      {showCertificate && <CertificateModal />}
+      
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-6">
@@ -730,11 +993,22 @@ const VehicleMaintenanceLMS = () => {
                 <BookOpen size={36} />
                 Vehicle Maintenance Training
               </h1>
-              <p className="text-blue-100 mt-1">Level 1 Certificate - Unit 727/777</p>
+              <p className="text-blue-100 mt-1">
+                Level 1 Certificate - Unit 727/777
+                {learnerName && <span className="ml-2">• {learnerName}</span>}
+              </p>
             </div>
             <div className="text-right">
               <div className="text-sm text-blue-100">Overall Progress</div>
               <div className="text-3xl font-bold">{getProgress()}%</div>
+              {isAllComplete() && (
+                <button
+                  onClick={() => setShowCertificate(true)}
+                  className="mt-2 text-xs bg-white text-blue-600 px-3 py-1 rounded-full hover:bg-blue-50 transition-colors font-semibold"
+                >
+                  View Certificate
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -788,7 +1062,13 @@ const VehicleMaintenanceLMS = () => {
                 <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg text-center">
                   <Award size={32} className="text-green-600 mx-auto mb-2" />
                   <p className="font-semibold text-green-800">Course Complete!</p>
-                  <p className="text-sm text-green-700 mt-1">Well done on finishing all modules</p>
+                  <p className="text-sm text-green-700 mt-1 mb-3">Well done on finishing all modules</p>
+                  <button
+                    onClick={() => setShowCertificate(true)}
+                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-2 rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all text-sm"
+                  >
+                    View Certificate
+                  </button>
                 </div>
               )}
             </div>
