@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, Circle, Award, BookOpen, ChevronRight, ChevronLeft, RotateCcw, Download, Camera } from 'lucide-react';
+import { CheckCircle, Circle, Award, BookOpen, ChevronRight, ChevronLeft, RotateCcw, Download, Camera, Save, Trash2 } from 'lucide-react';
 
 const VehicleMaintenanceLMS = () => {
   const [currentModule, setCurrentModule] = useState(0);
@@ -10,7 +10,160 @@ const VehicleMaintenanceLMS = () => {
   const [learnerName, setLearnerName] = useState('');
   const [showNamePrompt, setShowNamePrompt] = useState(true);
   const [showCertificate, setShowCertificate] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('saved'); // 'saving', 'saved', 'error'
+  const [storageAvailable, setStorageAvailable] = useState(true);
   const certificateRef = useRef(null);
+
+  // Check if localStorage is available
+  const checkStorageAvailability = () => {
+    try {
+      const test = '__storage_test__';
+      localStorage.setItem(test, test);
+      localStorage.removeItem(test);
+      return true;
+    } catch (e) {
+      console.warn('localStorage not available:', e);
+      return false;
+    }
+  };
+
+  // Load saved data from localStorage
+  const loadFromStorage = () => {
+    if (!checkStorageAvailability()) {
+      setStorageAvailable(false);
+      return;
+    }
+
+    try {
+      const savedName = localStorage.getItem('vehicleMaintenance_learnerName');
+      const savedProgress = localStorage.getItem('vehicleMaintenance_progress');
+      const savedAnswers = localStorage.getItem('vehicleMaintenance_quizAnswers');
+      const savedModule = localStorage.getItem('vehicleMaintenance_currentModule');
+      const savedSection = localStorage.getItem('vehicleMaintenance_currentSection');
+
+      if (savedName) {
+        setLearnerName(savedName);
+        setShowNamePrompt(false);
+      }
+      
+      if (savedProgress) {
+        setProgress(JSON.parse(savedProgress));
+      }
+      
+      if (savedAnswers) {
+        setQuizAnswers(JSON.parse(savedAnswers));
+      }
+      
+      if (savedModule) {
+        setCurrentModule(parseInt(savedModule, 10));
+      }
+      
+      if (savedSection) {
+        setCurrentSection(savedSection);
+      }
+
+      console.log('Progress loaded successfully from storage');
+    } catch (error) {
+      console.error('Error loading from storage:', error);
+      setSaveStatus('error');
+    }
+  };
+
+  // Save data to localStorage
+  const saveToStorage = (data) => {
+    if (!storageAvailable) return;
+
+    setSaveStatus('saving');
+    
+    try {
+      if (data.learnerName !== undefined) {
+        localStorage.setItem('vehicleMaintenance_learnerName', data.learnerName);
+      }
+      if (data.progress !== undefined) {
+        localStorage.setItem('vehicleMaintenance_progress', JSON.stringify(data.progress));
+      }
+      if (data.quizAnswers !== undefined) {
+        localStorage.setItem('vehicleMaintenance_quizAnswers', JSON.stringify(data.quizAnswers));
+      }
+      if (data.currentModule !== undefined) {
+        localStorage.setItem('vehicleMaintenance_currentModule', data.currentModule.toString());
+      }
+      if (data.currentSection !== undefined) {
+        localStorage.setItem('vehicleMaintenance_currentSection', data.currentSection);
+      }
+
+      setTimeout(() => setSaveStatus('saved'), 500);
+    } catch (error) {
+      console.error('Error saving to storage:', error);
+      setSaveStatus('error');
+      
+      // If quota exceeded, try to clear old data and retry
+      if (error.name === 'QuotaExceededError') {
+        try {
+          localStorage.clear();
+          saveToStorage(data);
+        } catch (retryError) {
+          console.error('Retry failed:', retryError);
+        }
+      }
+    }
+  };
+
+  // Clear all saved data
+  const clearStorage = () => {
+    if (confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
+      try {
+        localStorage.removeItem('vehicleMaintenance_learnerName');
+        localStorage.removeItem('vehicleMaintenance_progress');
+        localStorage.removeItem('vehicleMaintenance_quizAnswers');
+        localStorage.removeItem('vehicleMaintenance_currentModule');
+        localStorage.removeItem('vehicleMaintenance_currentSection');
+        
+        // Reset state
+        setLearnerName('');
+        setProgress({});
+        setQuizAnswers({});
+        setCurrentModule(0);
+        setCurrentSection('content');
+        setShowResults(false);
+        setShowNamePrompt(true);
+        setShowCertificate(false);
+        
+        alert('Progress reset successfully!');
+      } catch (error) {
+        console.error('Error clearing storage:', error);
+        alert('Error clearing progress. Please try again.');
+      }
+    }
+  };
+
+  // Load data on mount
+  useEffect(() => {
+    loadFromStorage();
+  }, []);
+
+  // Auto-save when data changes
+  useEffect(() => {
+    if (learnerName) {
+      saveToStorage({ learnerName });
+    }
+  }, [learnerName]);
+
+  useEffect(() => {
+    saveToStorage({ progress });
+  }, [progress]);
+
+  useEffect(() => {
+    saveToStorage({ quizAnswers });
+  }, [quizAnswers]);
+
+  useEffect(() => {
+    saveToStorage({ currentModule });
+  }, [currentModule]);
+
+  useEffect(() => {
+    saveToStorage({ currentSection });
+  }, [currentSection]);
 
   const modules = [
     {
@@ -946,6 +1099,21 @@ const VehicleMaintenanceLMS = () => {
             <div className="text-6xl mb-4">👋</div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome!</h2>
             <p className="text-gray-600">Please enter your name to begin your training</p>
+            
+            {storageAvailable ? (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800 flex items-center justify-center gap-2">
+                  <Save size={16} />
+                  Your progress will be automatically saved
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800 flex items-center justify-center gap-2">
+                  ⚠️ Progress will not be saved (Private browsing or storage disabled)
+                </p>
+              </div>
+            )}
           </div>
 
           <input
@@ -960,6 +1128,7 @@ const VehicleMaintenanceLMS = () => {
                 setShowNamePrompt(false);
               }
             }}
+            autoFocus
           />
 
           <button
@@ -988,15 +1157,47 @@ const VehicleMaintenanceLMS = () => {
       <header className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1">
               <h1 className="text-3xl font-bold flex items-center gap-3">
                 <BookOpen size={36} />
                 Vehicle Maintenance Training
               </h1>
-              <p className="text-blue-100 mt-1">
-                Level 1 Certificate - Unit 727/777
-                {learnerName && <span className="ml-2">• {learnerName}</span>}
-              </p>
+              <div className="flex items-center gap-4 mt-1">
+                <p className="text-blue-100">
+                  Level 1 Certificate - Unit 727/777
+                  {learnerName && <span className="ml-2">• {learnerName}</span>}
+                </p>
+                
+                {/* Save Status Indicator */}
+                {storageAvailable && (
+                  <div className="flex items-center gap-1 text-xs">
+                    {saveStatus === 'saving' && (
+                      <>
+                        <Save size={14} className="animate-pulse" />
+                        <span className="text-blue-200">Saving...</span>
+                      </>
+                    )}
+                    {saveStatus === 'saved' && (
+                      <>
+                        <CheckCircle size={14} />
+                        <span className="text-blue-200">Saved</span>
+                      </>
+                    )}
+                    {saveStatus === 'error' && (
+                      <>
+                        <Circle size={14} className="text-red-300" />
+                        <span className="text-red-200">Save error</span>
+                      </>
+                    )}
+                  </div>
+                )}
+                
+                {!storageAvailable && (
+                  <div className="text-xs text-yellow-200 bg-yellow-600 bg-opacity-30 px-2 py-1 rounded">
+                    ⚠️ Progress not being saved (Storage unavailable)
+                  </div>
+                )}
+              </div>
             </div>
             <div className="text-right">
               <div className="text-sm text-blue-100">Overall Progress</div>
@@ -1068,6 +1269,19 @@ const VehicleMaintenanceLMS = () => {
                     className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-2 rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all text-sm"
                   >
                     View Certificate
+                  </button>
+                </div>
+              )}
+
+              {/* Reset Progress Button */}
+              {storageAvailable && (learnerName || Object.keys(progress).length > 0) && (
+                <div className="mt-4">
+                  <button
+                    onClick={clearStorage}
+                    className="w-full flex items-center justify-center gap-2 p-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200"
+                  >
+                    <Trash2 size={16} />
+                    Reset Progress
                   </button>
                 </div>
               )}
